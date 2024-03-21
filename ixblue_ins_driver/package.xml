@@ -29,6 +29,10 @@
   <depend>ixblue_ins_msgs</depend>
   <depend>ixblue_stdbin_decoder</depend>
   <depend>libboost-system-dev</depend>
+  <depend>tf2</depend>
+  <depend>tf2_ros</depend>
+  <depend>tf2_geometry_msgs</depend>
+
 
   <test_depend>libpcap</test_depend>
   <test_depend>libboost-program-options-dev</test_depend>

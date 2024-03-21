@@ -5,6 +5,7 @@
 #include <boost/date_time/posix_time/posix_time.hpp>
 
 #include "ros_publisher.h"
+#include "tf2/tf2/convert.h"
 #include <rclcpp/rclcpp.hpp>
 
 ROSPublisher::ROSPublisher(std::shared_ptr<rclcpp::Node> node):
@@ -63,6 +64,10 @@ ROSPublisher::ROSPublisher(std::shared_ptr<rclcpp::Node> node):
     stdTimeReferencePublisher =
         nh->create_publisher<sensor_msgs::msg::TimeReference>("standard/timereference", 1);
     stdInsPublisher = nh->create_publisher<ixblue_ins_msgs::msg::Ins>("ix/ins", 1);
+
+    ixblue2enu_ = tf2::Matrix3x3( 1, 0, 0,
+                                  0, 1, 0,
+                                  0, 0, 1);
 }
 
 void ROSPublisher::onNewStdBinData(
@@ -174,6 +179,23 @@ std::shared_ptr<rclcpp::Node> ROSPublisher::getNode() const
   return nh;
 }
 
+void ROSPublisher::ixblue2Ros(const ixblue_stdbin_decoder::Data::AttitudeQuaternion & ixblue_quat,
+                geometry_msgs::msg::Quaternion & ros_quat){
+
+  tf2::Quaternion q_ned2enu, qbody2ned(ixblue_quat.q1,
+                                       ixblue_quat.q2,
+                                       ixblue_quat.q3,
+                                       ixblue_quat.q0);
+  ixblue2enu_.getRotation(q_ned2enu);
+  ros_quat = tf2::toMsg(q_ned2enu*qbody2ned);
+
+
+  // ros_quat.w =  ixblue_quat.q0;
+  // ros_quat.x = -ixblue_quat.q2;
+  // ros_quat.y =  ixblue_quat.q1;
+  // ros_quat.z =  ixblue_quat.q3;
+}
+
 sensor_msgs::msg::Imu::Ptr
 ROSPublisher::toImuMsg(const ixblue_stdbin_decoder::Data::BinaryNav& navData,
                        bool use_compensated_acceleration)
@@ -194,11 +216,12 @@ ROSPublisher::toImuMsg(const ixblue_stdbin_decoder::Data::BinaryNav& navData,
     sensor_msgs::msg::Imu::Ptr res = std::make_shared<sensor_msgs::msg::Imu>();
 
     // --- Orientation
-    res->orientation.x = navData.attitudeQuaternion.get().q1;
-    res->orientation.y = navData.attitudeQuaternion.get().q2;
-    res->orientation.z = navData.attitudeQuaternion.get().q3;
-    // Must negate w to get a correct quaternion and match attitudeHeading output
-    res->orientation.w = -navData.attitudeQuaternion.get().q0;
+    ixblue2Ros(navData.attitudeQuaternion.get(), res->orientation);
+    // res->orientation.x = navData.attitudeQuaternion.get().q1;
+    // res->orientation.y = navData.attitudeQuaternion.get().q2;
+    // res->orientation.z = navData.attitudeQuaternion.get().q3;
+    // // Must negate w to get a correct quaternion and match attitudeHeading output
+    // res->orientation.w = -navData.attitudeQuaternion.get().q0;
 
     // --- Orientation SD
     if(navData.attitudeQuaternionDeviation.is_initialized() == false)
