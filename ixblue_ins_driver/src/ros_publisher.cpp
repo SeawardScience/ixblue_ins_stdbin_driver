@@ -179,16 +179,37 @@ std::shared_ptr<rclcpp::Node> ROSPublisher::getNode() const
   return nh;
 }
 
-void ROSPublisher::ixblue2Ros(const ixblue_stdbin_decoder::Data::AttitudeQuaternion & ixblue_quat,
+double nedHeadingToEnuYaw(double nedHeadingDegrees) {
+  // Convert NED heading to ENU yaw in degrees
+  double enuYawDegrees = 90.0 - nedHeadingDegrees;
+
+  // Normalize the yaw to be within the range [0, 360)
+  if (enuYawDegrees < 0) {
+    enuYawDegrees += 360;
+  }
+
+  return enuYawDegrees;
+}
+
+void ROSPublisher::ixblue2Ros(const ixblue_stdbin_decoder::Data::BinaryNav& navData,
                 geometry_msgs::msg::Quaternion & ros_quat){
+  // auto ixblue_quat = navData.attitudeQuaternion.get();
+  // tf2::Quaternion q_ned2enu, qbody2ned(ixblue_quat.q1,
+  //                                      ixblue_quat.q2,
+  //                                      ixblue_quat.q3,
+  //                                      ixblue_quat.q0);
+  // ixblue2enu_.getRotation(q_ned2enu);
+  // ros_quat = tf2::toMsg(q_ned2enu*qbody2ned);
 
-  tf2::Quaternion q_ned2enu, qbody2ned(ixblue_quat.q1,
-                                       ixblue_quat.q2,
-                                       ixblue_quat.q3,
-                                       ixblue_quat.q0);
-  ixblue2enu_.getRotation(q_ned2enu);
-  ros_quat = tf2::toMsg(q_ned2enu*qbody2ned);
+  tf2::Quaternion orientaiton;
+  auto yaw = nedHeadingToEnuYaw(navData.attitudeHeading.get().heading_deg) * M_PI/180.0;
+  auto pitch = navData.attitudeHeading.get().pitch_deg *  M_PI/180.0;
+  auto roll = navData.attitudeHeading.get().roll_deg  *  M_PI/180.0;
+  orientaiton.setRPY(roll,
+                     pitch,
+                     yaw);
 
+  ros_quat = tf2::toMsg(orientaiton);
 
   // ros_quat.w =  ixblue_quat.q0;
   // ros_quat.x = -ixblue_quat.q2;
@@ -216,7 +237,7 @@ ROSPublisher::toImuMsg(const ixblue_stdbin_decoder::Data::BinaryNav& navData,
     sensor_msgs::msg::Imu::Ptr res = std::make_shared<sensor_msgs::msg::Imu>();
 
     // --- Orientation
-    ixblue2Ros(navData.attitudeQuaternion.get(), res->orientation);
+    ixblue2Ros(navData, res->orientation);
     // res->orientation.x = navData.attitudeQuaternion.get().q1;
     // res->orientation.y = navData.attitudeQuaternion.get().q2;
     // res->orientation.z = navData.attitudeQuaternion.get().q3;

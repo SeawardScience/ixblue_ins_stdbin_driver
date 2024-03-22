@@ -14,6 +14,7 @@
 #include <tf2/LinearMath/Transform.h>
 #include "diagnostics_publisher.h"
 #include "tf2/tf2/LinearMath/Matrix3x3.h"
+#include <cmath>
 
 class ROSPublisher
 {
@@ -62,6 +63,6 @@ protected:
     bool useUnixAsTimeOrigin = true;
 
     tf2::Matrix3x3 ixblue2enu_;
-    void ixblue2Ros(const ixblue_stdbin_decoder::Data::AttitudeQuaternion & ixblue_quat,
+    void ixblue2Ros(const ixblue_stdbin_decoder::Data::BinaryNav& navData,
                     geometry_msgs::msg::Quaternion & ros_quat);
 };
