@@ -12,6 +12,9 @@ set(ROS_DEPENDS
   ixblue_ins_msgs
   diagnostic_updater
   diagnostic_msgs
+  tf2
+  tf2_ros
+  tf2_geometry_msgs
   )
 
 set(EXTERNAL_DEPENDS
