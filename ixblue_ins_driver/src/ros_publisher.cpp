@@ -61,6 +61,7 @@ ROSPublisher::ROSPublisher(std::shared_ptr<rclcpp::Node> node):
     // Publishers
     stdImuPublisher = nh->create_publisher<sensor_msgs::msg::Imu>("standard/imu", 10);
     stdNavSatFixPublisher = nh->create_publisher<sensor_msgs::msg::NavSatFix>("standard/navsatfix", 1);
+    stdTwistPublisher = nh->create_publisher<geometry_msgs::msg::TwistWithCovarianceStamped>("standard/twist", 1);
     stdTimeReferencePublisher =
         nh->create_publisher<sensor_msgs::msg::TimeReference>("standard/timereference", 1);
     stdInsPublisher = nh->create_publisher<ixblue_ins_msgs::msg::Ins>("ix/ins", 1);
@@ -92,6 +93,7 @@ void ROSPublisher::onNewStdBinData(
 
     auto imuMsg = toImuMsg(navData, use_compensated_acceleration);
     auto navsatfixMsg = toNavSatFixMsg(navData);
+    auto twistMsg = toTwistMsg(navData);
     auto iXinsMsg = toiXInsMsg(navData);
 
     if(!useInsAsTimeReference)
@@ -115,6 +117,10 @@ void ROSPublisher::onNewStdBinData(
     {
         navsatfixMsg->header = headerMsg;
         stdNavSatFixPublisher->publish(*navsatfixMsg);
+    }
+    if(twistMsg){
+        twistMsg->header = headerMsg;
+        stdTwistPublisher->publish(*twistMsg);
     }
     if(iXinsMsg)
     {
@@ -217,7 +223,7 @@ void ROSPublisher::ixblue2Ros(const ixblue_stdbin_decoder::Data::BinaryNav& navD
   // ros_quat.z =  ixblue_quat.q3;
 }
 
-sensor_msgs::msg::Imu::Ptr
+sensor_msgs::msg::Imu::SharedPtr
 ROSPublisher::toImuMsg(const ixblue_stdbin_decoder::Data::BinaryNav& navData,
                        bool use_compensated_acceleration)
 {
@@ -234,7 +240,7 @@ ROSPublisher::toImuMsg(const ixblue_stdbin_decoder::Data::BinaryNav& navData,
     }
 
     // --- Initialisation
-    sensor_msgs::msg::Imu::Ptr res = std::make_shared<sensor_msgs::msg::Imu>();
+    sensor_msgs::msg::Imu::SharedPtr res = std::make_shared<sensor_msgs::msg::Imu>();
 
     // --- Orientation
     ixblue2Ros(navData, res->orientation);
@@ -342,7 +348,7 @@ ROSPublisher::toImuMsg(const ixblue_stdbin_decoder::Data::BinaryNav& navData,
     return res;
 }
 
-sensor_msgs::msg::NavSatFix::Ptr
+sensor_msgs::msg::NavSatFix::SharedPtr
 ROSPublisher::toNavSatFixMsg(const ixblue_stdbin_decoder::Data::BinaryNav& navData)
 {
 
@@ -353,7 +359,7 @@ ROSPublisher::toNavSatFixMsg(const ixblue_stdbin_decoder::Data::BinaryNav& navDa
     }
 
     // --- Initialisation
-    sensor_msgs::msg::NavSatFix::Ptr res = std::make_shared<sensor_msgs::msg::NavSatFix>();
+    sensor_msgs::msg::NavSatFix::SharedPtr res = std::make_shared<sensor_msgs::msg::NavSatFix>();
 
     // --- Position
     res->latitude = navData.position.get().latitude_deg;
@@ -395,11 +401,11 @@ ROSPublisher::toNavSatFixMsg(const ixblue_stdbin_decoder::Data::BinaryNav& navDa
     return res;
 }
 
-sensor_msgs::msg::TimeReference::Ptr
+sensor_msgs::msg::TimeReference::SharedPtr
 ROSPublisher::toTimeReference(const ixblue_stdbin_decoder::Data::NavHeader& headerData)
 {
     // --- Initialisation
-    sensor_msgs::msg::TimeReference::Ptr res = std::make_shared<sensor_msgs::msg::TimeReference>();
+    sensor_msgs::msg::TimeReference::SharedPtr res = std::make_shared<sensor_msgs::msg::TimeReference>();
 
     // --- System time
     res->header.stamp = rclcpp::Clock().now();
@@ -417,7 +423,51 @@ ROSPublisher::toTimeReference(const ixblue_stdbin_decoder::Data::NavHeader& head
     return res;
 }
 
-ixblue_ins_msgs::msg::Ins::Ptr
+size_t trace6x6(size_t i){
+  return i*6 + i;
+}
+
+geometry_msgs::msg::TwistWithCovarianceStamped::SharedPtr ROSPublisher::toTwistMsg(
+    const ixblue_stdbin_decoder::Data::BinaryNav& navData)
+{
+  if(navData.position.is_initialized() == false ||
+      navData.attitudeHeading.is_initialized() == false ||
+      navData.speedVesselFrame.is_initialized() == false ||
+      navData.insUserStatus.is_initialized() == false)
+  {
+    return nullptr;
+  }
+
+  geometry_msgs::msg::TwistWithCovarianceStamped::SharedPtr res = std::make_shared<geometry_msgs::msg::TwistWithCovarianceStamped>();
+
+  res->twist.twist.linear.x = navData.speedVesselFrame.get().xv1_msec;
+  res->twist.twist.linear.y = navData.speedVesselFrame.get().xv2_msec;
+  res->twist.twist.linear.z = navData.speedVesselFrame.get().xv3_msec;
+
+  res->twist.twist.angular.x = navData.rotationRateVesselFrame.get().xv1_degsec * M_PI / 180.;
+  res->twist.twist.angular.y = navData.rotationRateVesselFrame.get().xv2_degsec * M_PI / 180.;
+  res->twist.twist.angular.z = navData.rotationRateVesselFrame.get().xv3_degsec * M_PI / 180.;
+
+  res->twist.covariance[trace6x6(3)] =
+      (navData.rotationRateVesselFrameDeviation.get().xv1_stddev_degsec * M_PI /
+       180) *
+      (navData.rotationRateVesselFrameDeviation.get().xv1_stddev_degsec * M_PI /
+       180);
+  res->twist.covariance[trace6x6(4)] =
+      (navData.rotationRateVesselFrameDeviation.get().xv2_stddev_degsec * M_PI /
+       180) *
+      (navData.rotationRateVesselFrameDeviation.get().xv2_stddev_degsec * M_PI /
+       180);
+  res->twist.covariance[trace6x6(5)] =
+      (navData.rotationRateVesselFrameDeviation.get().xv3_stddev_degsec * M_PI /
+       180) *
+      (navData.rotationRateVesselFrameDeviation.get().xv3_stddev_degsec * M_PI /
+       180);
+
+  return res;
+}
+
+ixblue_ins_msgs::msg::Ins::SharedPtr
 ROSPublisher::toiXInsMsg(const ixblue_stdbin_decoder::Data::BinaryNav& navData)
 {
 
@@ -431,7 +481,7 @@ ROSPublisher::toiXInsMsg(const ixblue_stdbin_decoder::Data::BinaryNav& navData)
     }
 
     // --- Initialisation
-    ixblue_ins_msgs::msg::Ins::Ptr res = std::make_shared<ixblue_ins_msgs::msg::Ins>();
+    ixblue_ins_msgs::msg::Ins::SharedPtr res = std::make_shared<ixblue_ins_msgs::msg::Ins>();
 
     // --- Position
     res->latitude = navData.position.get().latitude_deg;
