@@ -62,6 +62,7 @@ ROSPublisher::ROSPublisher(std::shared_ptr<rclcpp::Node> node):
     stdImuPublisher = nh->create_publisher<sensor_msgs::msg::Imu>("standard/imu", 10);
     stdNavSatFixPublisher = nh->create_publisher<sensor_msgs::msg::NavSatFix>("standard/navsatfix", 1);
     stdTwistPublisher = nh->create_publisher<geometry_msgs::msg::TwistWithCovarianceStamped>("standard/twist", 1);
+    rangePublisher = nh->create_publisher<sensor_msgs::msg::Range>("standard/range",1);
     stdTimeReferencePublisher =
         nh->create_publisher<sensor_msgs::msg::TimeReference>("standard/timereference", 1);
     stdInsPublisher = nh->create_publisher<ixblue_ins_msgs::msg::Ins>("ix/ins", 1);
@@ -95,6 +96,7 @@ void ROSPublisher::onNewStdBinData(
     auto navsatfixMsg = toNavSatFixMsg(navData);
     auto twistMsg = toTwistMsg(navData);
     auto iXinsMsg = toiXInsMsg(navData);
+    auto rangeMsg = dvlToRangeMsg(navData);
 
     if(!useInsAsTimeReference)
     {
@@ -126,6 +128,10 @@ void ROSPublisher::onNewStdBinData(
     {
         iXinsMsg->header = headerMsg;
         stdInsPublisher->publish(*iXinsMsg);
+    }
+    if(rangeMsg){
+      rangeMsg->header = headerMsg;
+      rangePublisher->publish(*rangeMsg);
     }
 }
 
@@ -465,6 +471,22 @@ geometry_msgs::msg::TwistWithCovarianceStamped::SharedPtr ROSPublisher::toTwistM
        180);
 
   return res;
+}
+
+sensor_msgs::msg::Range::SharedPtr ROSPublisher::dvlToRangeMsg(
+    const ixblue_stdbin_decoder::Data::BinaryNav& navData)
+{
+
+  if(navData.position.is_initialized() == false ||
+      navData.dvlGroundSpeed1.is_initialized() == false){
+    return nullptr;
+  }else{
+    sensor_msgs::msg::Range::SharedPtr range = std::make_shared<sensor_msgs::msg::Range>();
+
+    range->range = navData.dvlGroundSpeed1.get().dvl_altitude_m;
+    return range;
+  }
+
 }
 
 ixblue_ins_msgs::msg::Ins::SharedPtr

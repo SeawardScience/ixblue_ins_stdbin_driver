@@ -14,6 +14,7 @@
 #include <tf2/LinearMath/Transform.h>
 #include "diagnostics_publisher.h"
 #include "tf2/tf2/LinearMath/Matrix3x3.h"
+#include <sensor_msgs/msg/range.hpp>
 #include <cmath>
 
 class ROSPublisher
@@ -36,6 +37,9 @@ public:
 
     geometry_msgs::msg::TwistWithCovarianceStamped::SharedPtr
     toTwistMsg(const ixblue_stdbin_decoder::Data::BinaryNav& navData);
+
+    sensor_msgs::msg::Range::SharedPtr
+    dvlToRangeMsg(const ixblue_stdbin_decoder::Data::BinaryNav& navData);
 
     // iXblue ros msgs
     ixblue_ins_msgs::msg::Ins::SharedPtr
@@ -60,7 +64,7 @@ protected:
     rclcpp::Publisher<sensor_msgs::msg::Imu>::SharedPtr stdImuPublisher;
     rclcpp::Publisher<sensor_msgs::msg::NavSatFix>::SharedPtr stdNavSatFixPublisher;
     rclcpp::Publisher<geometry_msgs::msg::TwistWithCovarianceStamped>::SharedPtr stdTwistPublisher;
-
+    rclcpp::Publisher<sensor_msgs::msg::Range>::SharedPtr rangePublisher;
     rclcpp::Publisher<sensor_msgs::msg::TimeReference>::SharedPtr stdTimeReferencePublisher;
     rclcpp::Publisher<ixblue_ins_msgs::msg::Ins>::SharedPtr stdInsPublisher;
     DiagnosticsPublisher diagPub;
