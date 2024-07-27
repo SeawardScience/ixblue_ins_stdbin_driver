@@ -62,7 +62,7 @@ ROSPublisher::ROSPublisher(std::shared_ptr<rclcpp::Node> node):
     stdImuPublisher = nh->create_publisher<sensor_msgs::msg::Imu>("standard/imu", 10);
     stdNavSatFixPublisher = nh->create_publisher<sensor_msgs::msg::NavSatFix>("standard/navsatfix", 1);
     stdTwistPublisher = nh->create_publisher<geometry_msgs::msg::TwistWithCovarianceStamped>("standard/twist", 1);
-    rangePublisher = nh->create_publisher<sensor_msgs::msg::Range>("standard/range",1);
+    rangePublisher = nh->create_publisher<sensor_msgs::msg::Range>("~/dvl1/range",1);
     stdTimeReferencePublisher =
         nh->create_publisher<sensor_msgs::msg::TimeReference>("standard/timereference", 1);
     stdInsPublisher = nh->create_publisher<ixblue_ins_msgs::msg::Ins>("ix/ins", 1);
