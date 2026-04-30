@@ -23,9 +23,6 @@ DiagnosticsPublisher::DiagnosticsPublisher(std::shared_ptr<rclcpp::Node> nh)
                                                  frequency_tolerance, 10),
         diagnostic_updater::TimeStampStatusParam(-max_latency, max_latency)));
 
-    diagnosticsTimer = nh_->create_wall_timer(
-        std::chrono::milliseconds(100),
-        std::bind(&DiagnosticsPublisher::diagTimerCallback, this));
 }
 
 
@@ -47,11 +44,6 @@ void DiagnosticsPublisher::updateStatus(
     lastMessageReceivedStamp = rclcpp::Clock().now();
     lastSystemStatus = systemStatus;
     lastAlgorithmStatus = algorithmStatus;
-}
-
-void DiagnosticsPublisher::diagTimerCallback()
-{
-    diagnosticsUpdater.force_update();
 }
 
 void DiagnosticsPublisher::produceStatusDiagnostics(

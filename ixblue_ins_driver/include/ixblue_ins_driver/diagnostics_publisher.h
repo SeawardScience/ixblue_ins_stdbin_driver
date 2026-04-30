@@ -25,7 +25,6 @@ public:
             algorithmStatus);
 
 private:
-    void diagTimerCallback();
     void produceStatusDiagnostics(diagnostic_updater::DiagnosticStatusWrapper& status);
 
     // Parameters
@@ -34,7 +33,6 @@ private:
     double max_latency;
     double connection_lost_timeout;
 
-    rclcpp::TimerBase::SharedPtr diagnosticsTimer;
     diagnostic_updater::Updater diagnosticsUpdater;
     std::unique_ptr<diagnostic_updater::TopicDiagnostic> stdImuTopicDiagnostic;
     rclcpp::Time lastMessageReceivedStamp;
